@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leads Cleaner — Google Maps Scrape Formatter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0d0f12;
+      --surface: #141720;
+      --surface2: #1c2030;
+      --border: rgba(255, 255, 255, 0.07);
+      --border2: rgba(255, 255, 255, 0.13);
+      --accent: #00e5a0;
+      --accent2: #0066ff;
+      --danger: #ff4d6d;
+      --text: #e8ecf0;
+      --muted: #6b7585;
+      --mono: 'DM Mono', monospace;
+      --sans: 'Syne', sans-serif;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0, 229, 160, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 229, 160, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 1.5rem 0;
+      position: sticky;
+      top: 0;
+      background: rgba(13, 15, 18, 0.92);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+
+    header .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+      color: #000;
+    }
+
+    .logo-text {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-text span {
+      color: var(--accent);
+    }
+
+    .badge-free {
+      font-family: var(--mono);
+      font-size: 11px;
+      background: rgba(0, 229, 160, 0.1);
+      color: var(--accent);
+      border: 1px solid rgba(0, 229, 160, 0.25);
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.05em;
+    }
+
+    /* Hero */
+    .hero {
+      padding: 5rem 0 3rem;
+      text-align: center;
+    }
+
+    .hero-tag {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+      display: inline-block;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 4rem);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero h1 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+
+    .hero p {
+      font-size: 1.05rem;
+      color: var(--muted);
+      max-width: 500px;
+      margin: 0 auto 2rem;
+      line-height: 1.7;
+      font-weight: 400;
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .hero-stat {
+      text-align: center;
+    }
+
+    .hero-stat-val {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .hero-stat-lbl {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-top: 2px;
+    }
+
+    /* Drop zone */
+    .drop-section {
+      padding: 0 0 3rem;
+    }
+
+    .drop-zone {
+      border: 1.5px dashed var(--border2);
+      border-radius: 16px;
+      padding: 4rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .drop-zone::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(0, 229, 160, 0.06), transparent 70%);
+      pointer-events: none;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(0, 229, 160, 0.04);
+    }
+
+    .drop-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.6;
+    }
+
+    .drop-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .drop-sub {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .drop-sub span {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    input[type=file] {
+      display: none;
+    }
+
+    /* File chips */
+    .file-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 1rem;
+    }
+
+    .file-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+      animation: chipIn 0.2s ease;
+    }
+
+    @keyframes chipIn {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .chip-ext {
+      font-size: 10px;
+      background: rgba(0, 229, 160, 0.15);
+      color: var(--accent);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    .chip-remove {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      padding: 0;
+      transition: color 0.15s;
+    }
+
+    .chip-remove:hover {
+      color: var(--danger);
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 2rem 0;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1rem;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+
+    .stat-card.highlight {
+      border-color: rgba(0, 229, 160, 0.3);
+    }
+
+    .stat-val {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .stat-lbl {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-top: 4px;
+    }
+
+    /* Progress */
+    .progress-wrap {
+      margin: 1.5rem 0;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-family: var(--mono);
+    }
+
+    .progress-track {
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 99px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+
+    /* Log */
+    .log-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      font-family: var(--mono);
+      font-size: 12px;
+      max-height: 180px;
+      overflow-y: auto;
+      margin: 1rem 0;
+    }
+
+    .log-entry {
+      padding: 2px 0;
+      color: var(--muted);
+    }
+
+    .log-ok {
+      color: var(--accent);
+    }
+
+    .log-err {
+      color: var(--danger);
+    }
+
+    .log-info {
+      color: #60a5fa;
+    }
+
+    /* Preview table */
+    .preview-wrap {
+      margin: 1.5rem 0;
+      overflow-x: auto;
+    }
+
+    .preview-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      background: var(--surface2);
+      padding: 8px 12px;
+      text-align: left;
+      color: var(--muted);
+      font-weight: 500;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody td {
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover td {
+      background: var(--surface2);
+    }
+
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-family: var(--mono);
+    }
+
+    .badge-yes {
+      background: rgba(0, 229, 160, 0.12);
+      color: var(--accent);
+      border: 1px solid rgba(0, 229, 160, 0.25);
+    }
+
+    .badge-no {
+      background: rgba(255, 77, 109, 0.1);
+      color: var(--danger);
+      border: 1px solid rgba(255, 77, 109, 0.2);
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 1.5rem;
+      align-items: center;
+    }
+
+    .btn {
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 700;
+      padding: 0.7rem 1.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+      letter-spacing: -0.01em;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .btn-primary:hover {
+      background: #00ffb3;
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border2);
+    }
+
+    .btn-ghost:hover {
+      color: var(--text);
+      border-color: var(--border2);
+      background: var(--surface2);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Success banner */
+    .success-banner {
+      background: rgba(0, 229, 160, 0.07);
+      border: 1px solid rgba(0, 229, 160, 0.25);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-top: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: gap;
+      gap: 1rem;
+    }
+
+    .success-text {
+      font-weight: 600;
+      color: var(--accent);
+      font-size: 15px;
+    }
+
+    .success-sub {
+      font-size: 13px;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-top: 2px;
+    }
+
+    .btn-download {
+      background: var(--accent);
+      color: #000;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 0.6rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+
+    .btn-download:hover {
+      background: #00ffb3;
+    }
+
+    /* Features */
+    .features {
+      padding: 3rem 0 4rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .features h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .feature-icon {
+      font-size: 1.4rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .feature-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .feature-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.5rem 0;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    footer span {
+      color: var(--accent);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--surface);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border2);
+      border-radius: 99px;
+    }
+
+    @media (max-width: 640px) {
+      .stats-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .hero h1 {
+        font-size: 2rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="container">
+      <div class="logo">
+        <div class="logo-mark">L</div>
+        <div class="logo-text">Leads<span>Cleaner</span></div>
+      </div>
+      <span class="badge-free">100% FREE · RUNS LOCALLY</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <span class="hero-tag">Google Maps Scrape Formatter</span>
+        <h1>Clean & Format<br><em>Leads in Bulk</em></h1>
+        <p>Drop your raw CSV files from Google Maps scrapes. Get beautifully formatted Excel files — instantly, in your
+          browser.</p>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <div class="hero-stat-val">0 tokens</div>
+            <div class="hero-stat-lbl">Claude cost</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-val">100%</div>
+            <div class="hero-stat-lbl">runs offline</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-val">4 sheets</div>
+            <div class="hero-stat-lbl">per output file</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="drop-section">
+      <div class="container">
+
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <input type="file" id="fileInput" accept=".csv" multiple>
+          <div class="drop-icon">⬆</div>
+          <div class="drop-title">Drop CSV files here</div>
+          <div class="drop-sub">or click to browse — <span>multiple files supported</span></div>
+        </div>
+
+        <div class="file-list" id="fileList"></div>
+
+        <div class="stats-row" id="statsRow" style="display:none;">
+          <div class="stat-card highlight">
+            <div class="stat-val" id="sFiles">0</div>
+            <div class="stat-lbl">files loaded</div>
+          </div>
+          <div class="stat-card highlight">
+            <div class="stat-val" id="sTotal">0</div>
+            <div class="stat-lbl">total leads</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" id="sWeb">0</div>
+            <div class="stat-lbl">have website</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" id="sNoWeb">0</div>
+            <div class="stat-lbl">no website</div>
+          </div>
+        </div>
+
+        <div class="progress-wrap" id="progWrap" style="display:none;">
+          <div class="progress-header"><span id="progLabel">Processing...</span><span id="progPct">0%</span></div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progFill"></div>
+          </div>
+        </div>
+
+        <div class="log-box" id="logBox" style="display:none;"></div>
+
+        <div class="preview-wrap" id="previewWrap" style="display:none;">
+          <div class="preview-label">Preview — first 10 rows</div>
+          <table id="previewTable"></table>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="processBtn" onclick="processAll()" style="display:none;">Process &amp;
+            Download ZIP</button>
+          <button class="btn btn-ghost" id="clearBtn" onclick="clearAll()" style="display:none;">Clear all</button>
+        </div>
+
+        <div class="success-banner" id="successBanner" style="display:none;">
+          <div>
+            <div class="success-text">Files are ready!</div>
+            <div class="success-sub" id="successSub"></div>
+          </div>
+          <a class="btn-download" id="dlLink" download="cleaned_leads.zip">Download ZIP</a>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="container">
+        <h2>What gets cleaned</h2>
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">🏥</div>
+            <div class="feature-title">Clinic / Doctor Name</div>
+            <div class="feature-desc">Extracted from raw scraped column, duplicates removed across entries.</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📞</div>
+            <div class="feature-title">Mobile Numbers</div>
+            <div class="feature-desc">Normalized to clean 10-digit format. Strips country codes, spaces, dashes.</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🌐</div>
+            <div class="feature-title">Website Detection</div>
+            <div class="feature-desc">Flags each lead Yes/No for website presence — ideal for outreach targeting.</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📦</div>
+            <div class="feature-title">4-Sheet Excel Output</div>
+            <div class="feature-desc">All Leads · Has Website · No Website · Summary dashboard per file.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">Built for dental &amp; medical niche scraping · Runs 100% in your browser · <span>No server.
+        No tokens. No cost.</span>
+    </div>
+  </footer>
+
+  <script>
+    const files = [];
+    let allRecords = [];
+
+    // ── Parsing helpers ──────────────────────────────────────────────────────────
+    function isPhone(v) {
+      const d = String(v).replace(/\D/g, '');
+      return d.length >= 7 && d.length <= 15;
+    }
+    function cleanPhone(v) {
+      const d = String(v).replace(/\D/g, '');
+      if (d.length === 10) return d;
+      if (d.length === 11 && d[0] === '0') return d.slice(1);
+      if (d.length === 12 && d.startsWith('91')) return d.slice(2);
+      return String(v).trim();
+    }
+
+    function parseCSV(text) {
+      const rows = [];
+      let cur = '', inQ = false, fields = [];
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (ch === '"') { inQ = !inQ; }
+        else if (ch === ',' && !inQ) { fields.push(cur.replace(/^"|"$/g, '').replace(/""/g, '"')); cur = ''; }
+        else if ((ch === '\n' || ch === '\r') && !inQ) {
+          fields.push(cur.replace(/^"|"$/g, '').replace(/""/g, '"'));
+          rows.push(fields); fields = []; cur = '';
+          if (ch === '\r' && text[i + 1] === '\n') i++;
+        } else cur += ch;
+      }
+      if (cur || fields.length) { fields.push(cur.replace(/^"|"$/g, '').replace(/""/g, '"')); rows.push(fields); }
+      return rows;
+    }
+
+    function csvToRecords(text, filename) {
+      const rows = parseCSV(text);
+      if (rows.length < 2) return [];
+      const headers = rows[0];
+      const records = [];
+      for (let i = 1; i < rows.length; i++) {
+        const obj = {};
+        headers.forEach((h, j) => obj[h] = rows[i][j] || '');
+        const name = String(obj['qBF1Pd'] || '').trim();
+        if (!name || name === 'nan') continue;
+        let phoneRaw = String(obj['UsdlK'] || '').trim();
+        if (!phoneRaw || !isPhone(phoneRaw)) phoneRaw = String(obj['Cw1rxd'] || '').trim();
+        const phone = (phoneRaw && isPhone(phoneRaw)) ? cleanPhone(phoneRaw) : '';
+        const mapsUrl = String(obj['hfpxzc href'] || '').trim();
+        const websiteUrl = String(obj['lcr4fd href'] || '').trim();
+        // Known Google Maps scraper column keys for rating
+        const RATING_KEYS = ['Jtu6Td', 'MW4etd', 'rGaKbf', 'rating', 'Rating', 'stars', 'Stars', 'score', 'Score'];
+        let rating = '';
+        for (const k of RATING_KEYS) {
+          const v = String(obj[k] || '').trim();
+          if (v && /^\d+(?:\.\d+)?$/.test(v)) { rating = v; break; }
+        }
+        if (!rating) {
+          // fallback: look through all headers for a name containing rating/star/score
+          for (const k of Object.keys(obj)) {
+            const kl = k.toLowerCase();
+            if (kl.includes('rating') || kl.includes('star') || kl === 'score') {
+              const v = String(obj[k] || '').trim();
+              if (v && /^\d+(?:\.\d+)?$/.test(v)) { rating = v; break; }
+            }
+          }
+        }
+        records.push({
+          _source: filename,
+          'Clinic / Doctor Name': name,
+          'Mobile Number': phone,
+          'Rating': rating,
+          'Category': String(obj['W4Efsd'] || '').trim(),
+          'Website': websiteUrl.startsWith('http') ? websiteUrl : '',
+          'Has Website': websiteUrl.startsWith('http') ? 'Yes' : 'No'
+        });
+      }
+      return records;
+    }
+
+    // ── Excel builder ────────────────────────────────────────────────────────────
+    function buildXLSX(records) {
+      const HEADERS = ['#', 'Source File', 'Clinic / Doctor Name', 'Mobile Number', 'Rating', 'Category', 'Website', 'Has Website'];
+      const wb = XLSX.utils.book_new();
+
+      function makeSheet(recs) {
+        const sorted = [...recs].sort((a, b) => {
+          const ra = parseFloat(a['Rating']) || 0;
+          const rb = parseFloat(b['Rating']) || 0;
+          return rb - ra;
+        });
+        const data = [HEADERS];
+        sorted.forEach((r, i) => data.push([
+          i + 1, r._source, r['Clinic / Doctor Name'], r['Mobile Number'], r['Rating'] || '',
+          r['Category'], r['Website'], r['Has Website']
+        ]));
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        ws['!cols'] = [5, 28, 42, 16, 8, 20, 32, 13].map(w => ({ wch: w }));
+        return ws;
+      }
+
+      const no = records.filter(r => r['Has Website'] === 'No');
+      XLSX.utils.book_append_sheet(wb, makeSheet(no), 'Leads');
+      return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    }
+
+    // ── UI helpers ───────────────────────────────────────────────────────────────
+    function log(msg, cls = '') {
+      const box = document.getElementById('logBox');
+      box.style.display = 'block';
+      const d = document.createElement('div');
+      d.className = 'log-entry ' + cls;
+      const ts = new Date().toLocaleTimeString('en-IN', { hour12: false });
+      d.textContent = `[${ts}] ${msg}`;
+      box.appendChild(d);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function updateStats(records) {
+      const web = records.filter(r => r['Has Website'] === 'Yes').length;
+      document.getElementById('sFiles').textContent = files.length;
+      document.getElementById('sTotal').textContent = records.length;
+      document.getElementById('sWeb').textContent = web;
+      document.getElementById('sNoWeb').textContent = records.length - web;
+      document.getElementById('statsRow').style.display = 'grid';
+    }
+
+    function renderPreview(records) {
+      const COLS = ['Clinic / Doctor Name', 'Mobile Number', 'Rating', 'Category', 'Has Website'];
+      const rows = records.slice(0, 10);
+      let html = `<thead><tr><th>Source file</th>${COLS.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+      rows.forEach(r => {
+        html += `<tr><td title="${r._source}" style="color:var(--muted)">${r._source.replace(/\.csv$/i, '').slice(0, 20)}</td>`;
+        COLS.forEach(c => {
+          if (c === 'Has Website')
+            html += `<td><span class="badge ${r[c] === 'Yes' ? 'badge-yes' : 'badge-no'}">${r[c]}</span></td>`;
+          else
+            html += `<td title="${r[c] || ''}">${r[c] || '—'}</td>`;
+        });
+        html += `</tr>`;
+      });
+      html += '</tbody>';
+      document.getElementById('previewTable').innerHTML = html;
+      document.getElementById('previewWrap').style.display = 'block';
+    }
+
+    function renderFileList() {
+      const fl = document.getElementById('fileList');
+      fl.innerHTML = '';
+      files.forEach((f, i) => {
+        const chip = document.createElement('div');
+        chip.className = 'file-chip';
+        chip.innerHTML = `<span class="chip-ext">CSV</span><span>${f.name}</span><button class="chip-remove" onclick="removeFile(${i})">×</button>`;
+        fl.appendChild(chip);
+      });
+      const show = files.length > 0;
+      document.getElementById('processBtn').style.display = show ? 'inline-block' : 'none';
+      document.getElementById('clearBtn').style.display = show ? 'inline-block' : 'none';
+    }
+
+    function removeFile(i) {
+      const removed = files.splice(i, 1)[0];
+      allRecords = allRecords.filter(r => r._source !== removed.name);
+      updateStats(allRecords);
+      renderFileList();
+      if (allRecords.length) renderPreview(allRecords);
+      if (!files.length) {
+        document.getElementById('statsRow').style.display = 'none';
+        document.getElementById('previewWrap').style.display = 'none';
+      }
+    }
+
+    function clearAll() {
+      files.length = 0; allRecords = [];
+      renderFileList();
+      ['statsRow', 'previewWrap', 'progWrap', 'logBox', 'successBanner'].forEach(id =>
+        document.getElementById(id).style.display = 'none');
+      document.getElementById('logBox').innerHTML = '';
+    }
+
+    function addFiles(newFiles) {
+      for (const f of newFiles) {
+        if (f.name.endsWith('.csv') && !files.find(x => x.name === f.name)) files.push(f);
+      }
+      allRecords = [];
+      let loaded = 0;
+      for (const f of files) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const recs = csvToRecords(e.target.result, f.name);
+          allRecords = allRecords.concat(recs);
+          loaded++;
+          if (loaded === files.length) {
+            allRecords.sort((a, b) => (parseFloat(b['Rating']) || 0) - (parseFloat(a['Rating']) || 0));
+            updateStats(allRecords);
+            renderPreview(allRecords);
+            renderFileList();
+          }
+        };
+        reader.readAsText(f);
+      }
+      renderFileList();
+    }
+
+    // ── Drag & drop ──────────────────────────────────────────────────────────────
+    const dz = document.getElementById('dropZone');
+    dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag-over'); };
+    dz.ondragleave = () => dz.classList.remove('drag-over');
+    dz.ondrop = e => { e.preventDefault(); dz.classList.remove('drag-over'); addFiles(Array.from(e.dataTransfer.files)); };
+    document.getElementById('fileInput').onchange = e => addFiles(Array.from(e.target.files));
+
+    // ── Process ──────────────────────────────────────────────────────────────────
+    async function processAll() {
+      if (!files.length) return;
+      document.getElementById('successBanner').style.display = 'none';
+      document.getElementById('logBox').innerHTML = '';
+      document.getElementById('progWrap').style.display = 'block';
+      document.getElementById('processBtn').disabled = true;
+
+      const zip = new JSZip();
+      const COMBINED = [];
+      let done = 0;
+
+      for (const f of files) {
+        await new Promise(res => {
+          const reader = new FileReader();
+          reader.onload = e => {
+            const recs = csvToRecords(e.target.result, f.name);
+            COMBINED.push(...recs);
+            const xlData = buildXLSX(recs);
+            const outName = f.name.replace(/\.csv$/i, '') + '_cleaned.xlsx';
+            zip.file(outName, xlData);
+            done++;
+            const pct = Math.round(done / files.length * 100);
+            document.getElementById('progFill').style.width = pct + '%';
+            document.getElementById('progPct').textContent = pct + '%';
+            document.getElementById('progLabel').textContent = `Processing ${f.name}…`;
+            log(`${f.name} → ${recs.length} leads extracted`, 'log-ok');
+            res();
+          };
+          reader.readAsText(f);
+        });
+      }
+
+      if (files.length > 1) {
+        zip.file('_COMBINED_ALL_LEADS.xlsx', buildXLSX(COMBINED));
+        log(`Combined master file → ${COMBINED.length} total leads`, 'log-info');
+      }
+
+      log('Building ZIP archive…', 'log-info');
+      document.getElementById('progLabel').textContent = 'Building ZIP…';
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipUrl = URL.createObjectURL(zipBlob);
+      document.getElementById('dlLink').href = zipUrl;
+
+      const web = COMBINED.filter(r => r['Has Website'] === 'Yes').length;
+      document.getElementById('successSub').textContent =
+        `${COMBINED.length} total leads · ${web} have website · ${COMBINED.length - web} no website`;
+      document.getElementById('successBanner').style.display = 'flex';
+
+      document.getElementById('progLabel').textContent = 'Done!';
+      document.getElementById('progFill').style.width = '100%';
+      document.getElementById('processBtn').disabled = false;
+      log('All done! Click Download ZIP to save your files.', 'log-ok');
+
+      updateStats(COMBINED);
+    }
+  </script>
+</body>
+
+</html>
